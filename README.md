@@ -92,6 +92,16 @@ fn main() -> anyhow::Result<()> {
 
 Minimum supported Rust version: **1.85** (required by edition 2024).
 
+## Design & contributing
+
+- **[Design & Rationale](https://github.com/jchultarsky101/clap-layers/blob/main/docs/DESIGN.md)** —
+  why this crate exists, the correctness requirements it must meet, the target API, and how the
+  derive works internally. Start here to understand the project's intent.
+- **[Contributing guide](CONTRIBUTING.md)** — how to build, test, and open a PR.
+- **[Changelog](CHANGELOG.md)** — notable changes per release.
+
+Contributions are welcome — especially tests and error-message improvements.
+
 ## License
 
 Licensed under the [MIT License](LICENSE).
