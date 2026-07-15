@@ -1,0 +1,16 @@
+[package]
+name = "clap-layers"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Correct layered configuration for clap: explicit CLI flag > env var > config file > default, from a single struct."
+license = "MIT"
+repository = "https://github.com/jchultarsky101/clap-layers"
+homepage = "https://github.com/jchultarsky101/clap-layers"
+documentation = "https://docs.rs/clap-layers"
+readme = "README.md"
+keywords = ["clap", "config", "cli", "configuration", "layered"]
+categories = ["command-line-interface", "config"]
+exclude = ["/docs", "/.github"]
+
+[dependencies]

@@ -1,0 +1,14 @@
+# Rust build artifacts
+/target
+
+# macOS
+.DS_Store
+
+# Editor / IDE
+*.swp
+*~
+.idea/
+.vscode/
+
+# Project brief — kept local, not published while pre-1.0
+/docs/PROJECT-BRIEF-clap-layered-config.md
