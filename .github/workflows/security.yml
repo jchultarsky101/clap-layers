@@ -30,21 +30,10 @@ jobs:
       - uses: taiki-e/install-action@cargo-deny
       # Runs advisories, licenses, bans and sources, per deny.toml. The same
       # command developers run locally, so a failure here reproduces verbatim.
+      #
+      # This subsumes cargo-audit: same RustSec database, same coverage of
+      # vulnerabilities, unmaintained, unsound, yanked and notice advisories,
+      # plus licences, duplicates and sources. Running both would be a second
+      # configuration to keep honest for no extra signal.
       - name: cargo deny check
         run: cargo deny check
-
-  cargo-audit:
-    name: cargo-audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-audit
-      # Deliberately overlaps cargo-deny's `advisories` check: this is the
-      # canonical RustSec tool and fetches the database independently, so it
-      # fails if that check is ever misconfigured into passing vacuously. If the
-      # duplication stops earning its keep, drop this job — `cargo deny check`
-      # covers it.
-      - name: cargo audit
-        run: cargo audit

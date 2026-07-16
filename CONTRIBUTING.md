@@ -30,8 +30,7 @@ Every dependency is compile time, audit surface and SemVer risk, so each one nee
 CI checks the supply chain on every push and weekly on a timer; run the same checks locally:
 
 ```sh
-cargo deny check   # advisories, licenses, bans, sources — see deny.toml
-cargo audit        # RustSec advisories
+cargo deny check   # advisories, licences, duplicates, sources — see deny.toml
 ```
 
 `deny.toml` allows only `MIT`, `Apache-2.0` and `Unicode-3.0`. Widening that list is a

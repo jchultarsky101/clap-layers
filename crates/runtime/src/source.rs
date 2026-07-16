@@ -89,8 +89,14 @@ pub(crate) fn from_env<T: DeserializeOwned>(
     field: &str,
     raw: &str,
 ) -> Result<T, LayeredError> {
-    if let Ok(value) = T::deserialize(toml::de::ValueDeserializer::new(raw)) {
-        return Ok(value);
+    // Two distinct ways this can decline: the text is not a TOML value at all
+    // (`MYAPP_HOST=localhost`), or it is one of the wrong type for the field
+    // (`MYAPP_HOST=8080` where `host` is a String). Both fall through to the
+    // bare-string reading below.
+    if let Ok(deserializer) = toml::de::ValueDeserializer::parse(raw) {
+        if let Ok(value) = T::deserialize(deserializer) {
+            return Ok(value);
+        }
     }
 
     T::deserialize(Value::String(raw.to_string()).into_deserializer()).map_err(

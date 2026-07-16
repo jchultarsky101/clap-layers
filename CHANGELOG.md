@@ -109,11 +109,20 @@ Against the unreleased scaffolding that preceded it:
 
 ### Security
 
-- `cargo-deny` and `cargo-audit` run in CI on every push and weekly on a
-  schedule, since an advisory can be published against an unchanged
-  `Cargo.lock`. `deny.toml` allows only the `MIT`, `Apache-2.0` and
-  `Unicode-3.0` licences the dependency tree actually resolves to, requires
-  every crate to come from crates.io, and bans wildcard versions.
+- `cargo-deny` runs in CI on every push and weekly on a schedule, since an
+  advisory can be published against an unchanged `Cargo.lock`. `deny.toml`
+  allows only the `MIT`, `Apache-2.0` and `Unicode-3.0` licences the dependency
+  tree actually resolves to, requires every crate to come from crates.io, and
+  denies wildcard versions and duplicate versions of shipped crates. It has no
+  exceptions.
+
+### Dependencies
+
+- `toml` 0.8 -> 1. The runtime crate held the tree on `toml` 0.8 while `trybuild`
+  pulled `toml` 1, so `toml`, `serde_spanned`, `toml_datetime` and `winnow` were
+  each present at two versions. No `toml` type appears in this crate's public
+  API, so the change is internal. The dependency graph drops from 86 crates to
+  80.
 
 ### Known limitations
 

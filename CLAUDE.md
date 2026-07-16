@@ -149,9 +149,12 @@ explicitly rather than implying they passed.
 
 - **Keep dependencies minimal** — this is a stated design goal, and each dep is compile time +
   audit surface + SemVer risk. Justify every addition.
-- Run [`cargo-audit`](https://crates.io/crates/cargo-audit) (RustSec advisories) and
-  [`cargo-deny`](https://embarkstudios.github.io/cargo-deny/) (licenses, bans, duplicates,
-  advisories) regularly; add them to CI. Dependabot is already configured.
+- [`cargo-deny`](https://embarkstudios.github.io/cargo-deny/) runs in CI on every push and
+  weekly on a schedule (an advisory can land against an unchanged `Cargo.lock`). It covers
+  RustSec advisories, licences, duplicates and sources; `deny.toml` holds the policy and has
+  no exceptions — keep it that way. It deliberately replaces `cargo-audit`, which reads the
+  same RustSec database and would be a second configuration to keep honest for no extra
+  signal. Dependabot is already configured.
 - Commit `Cargo.lock` (done) so CI and coverage are reproducible.
 - State an MSRV policy and honor it: MSRV is **1.85**; raising it is a minor-version, changelog-
   worthy event, and requires updating `rust-version`, the README, and the CI matrix together.

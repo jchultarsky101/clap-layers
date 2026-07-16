@@ -20,5 +20,5 @@ name = "clap-layers-e2e"
 path = "src/main.rs"
 
 [dependencies]
-clap-layers = { path = "../runtime" }
+clap-layers = { path = "../runtime", version = "0.1.0" }
 clap = { workspace = true, features = ["derive"] }
