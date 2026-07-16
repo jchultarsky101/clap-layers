@@ -19,7 +19,7 @@ jobs:
       matrix:
         rust: [stable, "1.85"] # 1.85 = MSRV
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust ${{ matrix.rust }}
         uses: dtolnay/rust-toolchain@master
         with:
@@ -32,7 +32,7 @@ jobs:
     name: Format & Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -48,7 +48,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo doc
