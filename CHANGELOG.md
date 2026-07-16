@@ -107,6 +107,14 @@ Against the unreleased scaffolding that preceded it:
   library-only strictness (`forbid(unsafe_code)`, `deny(missing_docs)`, no
   `unwrap`/`panic`) sits at the crate roots so it does not fire on test code.
 
+### Security
+
+- `cargo-deny` and `cargo-audit` run in CI on every push and weekly on a
+  schedule, since an advisory can be published against an unchanged
+  `Cargo.lock`. `deny.toml` allows only the `MIT`, `Apache-2.0` and
+  `Unicode-3.0` licences the dependency tree actually resolves to, requires
+  every crate to come from crates.io, and bans wildcard versions.
+
 ### Known limitations
 
 - A field with **no default and no `Option`** cannot be filled from the file or

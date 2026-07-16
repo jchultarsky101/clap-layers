@@ -24,6 +24,24 @@ cargo test --all-features
 The minimum supported Rust version (MSRV) is **1.85**. Don't use language or standard-library
 features newer than that without bumping `rust-version` in `Cargo.toml` and updating the README.
 
+## Adding a dependency
+
+Every dependency is compile time, audit surface and SemVer risk, so each one needs a reason.
+CI checks the supply chain on every push and weekly on a timer; run the same checks locally:
+
+```sh
+cargo deny check   # advisories, licenses, bans, sources — see deny.toml
+cargo audit        # RustSec advisories
+```
+
+`deny.toml` allows only `MIT`, `Apache-2.0` and `Unicode-3.0`. Widening that list is a
+licensing decision for everyone downstream of this crate, not a formality — if a dependency
+needs it, say why in the pull request.
+
+Note that `cargo deny check advisories` can start failing without anyone touching the code,
+because an advisory was published against a crate already in `Cargo.lock`. That is the check
+working, not a flaky test.
+
 ## Correctness bar
 
 This crate exists to get layered-configuration precedence *right*. Please read

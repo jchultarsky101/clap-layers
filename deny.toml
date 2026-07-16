@@ -42,7 +42,9 @@ targets = [
 # If true, metadata will be collected with `--all-features`. Note that this can't
 # be toggled off if true, if you want to conditionally enable `--all-features` it
 # is recommended to pass `--all-features` on the cmd line instead
-all-features = false
+# Check the whole graph, not just default features: a dependency that is sound
+# by default and vulnerable behind a feature flag is still a problem for users.
+all-features = true
 # If true, metadata will be collected with `--no-default-features`. The same
 # caveat with `all-features` applies
 no-default-features = false
@@ -88,6 +90,13 @@ ignore = [
 # List of explicitly allowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
+# What the dependency tree actually resolves to today, not a guess: it is
+# entirely permissive, and Unicode-3.0 arrives from unicode-ident in an AND
+# expression, so it cannot be satisfied by choosing another arm.
+#
+# Deliberately short. Widening it is a licensing decision for everyone
+# downstream of an MIT crate, so it should be a visible diff rather than a
+# silent default.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -144,7 +153,13 @@ registries = [
 # Lint level for when multiple versions of the same crate are detected
 multiple-versions = "warn"
 # Lint level for when a crate version requirement is `*`
-wildcards = "allow"
+# A wildcard version in a published crate is never intentional. The exception is
+# a path dependency inside a `publish = false` crate: the e2e test fixture
+# depends on the runtime by path, where a version would mean nothing.
+# `allow-wildcard-paths` permits exactly that and nothing else, so a wildcard
+# that could actually reach crates.io still fails.
+wildcards = "deny"
+allow-wildcard-paths = true
 # The graph highlighting used when creating dotgraphs for crates
 # with multiple versions
 # * lowest-version - The path to the lowest versioned duplicate is highlighted
@@ -220,10 +235,13 @@ skip-tree = [
 [sources]
 # Lint level for what to happen when a crate from a crate registry that is not
 # in the allow list is encountered
-unknown-registry = "warn"
+# Everything must come from crates.io. A git or path dependency sneaking into a
+# published crate is either a mistake or a supply-chain risk, and "warn" in CI
+# is indistinguishable from "ignored".
+unknown-registry = "deny"
 # Lint level for what to happen when a crate from a git repository that is not
 # in the allow list is encountered
-unknown-git = "warn"
+unknown-git = "deny"
 # List of URLs for allowed crate registries. Defaults to the crates.io index
 # if not specified. If it is specified but empty, no registries are allowed.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
