@@ -5,7 +5,7 @@
 //! ## Running this example
 //!
 //! ```bash
-//! # Set individual environment variables
+//! # Set individual environment variables (note: field names are lowercase)
 //! export MYAPP_HOST=localhost
 //! export MYAPP_PORT=8080
 //! cargo run --example environment_vars
@@ -13,6 +13,9 @@
 //! # Or set them inline
 //! MYAPP_HOST=localhost MYAPP_PORT=8080 cargo run --example environment_vars
 //! ```
+//!
+//! **Note:** Environment variable names are `{PREFIX}_{FIELD_NAME}` where `FIELD_NAME` is lowercase.
+//! For field `port`, the env var is `MYAPP_port`. For `host`, it's `MYAPP_host`.
 
 use clap::Parser;
 use clap_layers::Layered;

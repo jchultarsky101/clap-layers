@@ -12,17 +12,19 @@
 //!
 //! Try different configurations:
 //! ```bash
-//! # Use all defaults
+//! # Use all defaults (port=3000, verbose=0, debug=false)
 //! cargo run --example quickstart
 //!
-//! # Override via environment variable
-//! MYAPP_PORT=8080 cargo run --example quickstart
-//!
 //! # Override via CLI flag (highest priority)
-//! cargo run --example quickstart -- --port 9000
+//! cargo run --example quickstart -- --port 9000 --verbose
 //!
-//! # combination: env overrides file, CLI overrides both
-//! MYAPP_DEBUG=true cargo run --example quickstart -- --verbose
+//! # Override via environment variable (note: field names are lowercase)
+//! MYAPP_port=8080 MYAPP_debug=true cargo run --example quickstart
+//!
+//! # Create a file named config.toml in runtime/examples/ with:
+//! #   port = 5000
+//! #   verbose = 1
+//! # And run: cargo run --example quickstart
 //! ```
 
 use clap::Parser;
@@ -32,7 +34,7 @@ use clap_layers::Layered;
 #[command(name = "myapp")]
 #[command(version = "1.0")]
 #[command(about = "A simple CLI app with layered configuration", long_about = None)]
-#[layered(file = "../examples/config.toml", env_prefix = "MYAPP")]
+#[layered(file = "config.toml", env_prefix = "MYAPP")]
 struct Config {
     /// Port to listen on
     #[arg(long, default_value_t = 3000)]
@@ -60,6 +62,6 @@ fn main() {
     if cfg.debug {
         eprintln!("\n[DEBUG] Configuration loaded successfully");
     }
-    
+
     println!("\nRunning with the configuration above...");
 }

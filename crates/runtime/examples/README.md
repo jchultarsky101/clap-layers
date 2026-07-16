@@ -20,20 +20,22 @@ This directory contains example programs demonstrating different ways to use `cl
 # List all examples
 cargo run --example <name>
 
-# With environment variables
-MYAPP_PORT=8080 cargo run --example environment_vars
+# With environment variables (field names are lowercase)
+MYAPP_port=8080 cargo run --example environment_vars
 
 # With a config file (if required)
 cargo run --example precedence_demo
 ```
+
+**Note:** Environment variable names use the format `{PREFIX}_{FIELD_NAME}` where `FIELD_NAME` is **lowercase**. For example, with `env_prefix = "MYAPP"` and field `port`, the env var is `MYAPP_port`.
 
 ## Precedence Order
 
 Configuration sources are applied in this order (highest to lowest priority):
 
 1. **CLI flags** - `--port 8080`
-2. **Environment variables** - `MYAPP_PORT=8080`
+2. **Environment variables** - `MYAPP_port=8080` (field name lowercase)
 3. **Config file** - `config.toml`
 4. **Defaults** - `default_value_t = 3000`
 
-This means CLI always wins, followed by env vars, then config file, with built-in defaults as the fallback.
+This means CLI always wins, followed by env vars (with lowercase field names), then config file, with built-in defaults as the fallback.
