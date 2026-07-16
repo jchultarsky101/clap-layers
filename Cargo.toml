@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/proc-macro", "crates/runtime", "tests"]
-default-members = ["crates/runtime"]
+members = ["crates/proc-macro", "crates/runtime"]
 
 [workspace.package]
 version = "0.1.0"
@@ -19,9 +18,28 @@ syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
 thiserror = "2"
-serde = { version = "1", features = ["derive"] }
 clap = { version = "4", features = ["derive", "env"] }
 toml = "0.8"
+serde = { version = "1", default-features = false, features = ["std"] }
+
+# Lints that are sensible for *every* target, tests and examples included.
+# Library-only strictness (`forbid(unsafe_code)`, `deny(missing_docs)`,
+# no-unwrap) lives at the crate roots instead, so it does not fire on test code
+# that may legitimately unwrap or touch the process environment.
+[workspace.lints.rust]
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+todo = "warn"
+unimplemented = "warn"
+# False positive for our layout: `readme = "../../README.md"` points outside the
+# package, which this lint cannot see, but `cargo package` rewrites it to
+# `readme = "README.md"` and ships the file. Verified against the built .crate.
+cargo_common_metadata = "allow"
 
 [profile.dev]
 opt-level = 0

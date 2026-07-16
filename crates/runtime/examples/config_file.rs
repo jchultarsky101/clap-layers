@@ -1,17 +1,13 @@
-//! Using config files for persistent configuration.
+//! Configuration from a TOML file.
 //!
-//! This example demonstrates how to load configuration from a TOML file.
+//! Paths in `#[layered(file = "...")]` are resolved relative to the process's
+//! working directory, which is the workspace root under `cargo run`.
+//!
+//! A missing config file is not an error — the layer is simply skipped. A file
+//! that exists but is unreadable or malformed *is* an error, and names the line.
 //!
 //! ## Running this example
 //!
-//! First, create a `config.toml` file:
-//! ```toml
-//! # config.toml
-//! host = "0.0.0.0"
-//! port = 9000
-//! ```
-//!
-//! Then run:
 //! ```bash
 //! cargo run --example config_file
 //! ```
@@ -20,7 +16,7 @@ use clap::Parser;
 use clap_layers::Layered;
 
 #[derive(Parser, Layered, Debug)]
-#[layered(file = "config.toml")]
+#[layered(file = "examples/config.toml")]
 struct Config {
     /// Host to bind to
     #[arg(long, default_value_t = String::from("127.0.0.1"))]
@@ -32,9 +28,13 @@ struct Config {
 }
 
 fn main() {
-    let cfg = Config::layered().expect("Failed to load config");
+    // `expect`/`?` would print the Debug representation, throwing away the
+    // source-attributed message. Print the Display form instead.
+    let cfg = Config::layered().unwrap_or_else(|e| {
+        eprintln!("configuration error: {e}");
+        std::process::exit(1);
+    });
 
-    println!("Server configuration from file:");
-    println!("  Host: {}", cfg.host);
-    println!("  Port: {}", cfg.port);
+    println!("Host: {} (config.toml sets 0.0.0.0)", cfg.host);
+    println!("Port: {} (config.toml sets 8080)", cfg.port);
 }

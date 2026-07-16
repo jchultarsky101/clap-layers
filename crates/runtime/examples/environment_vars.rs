@@ -1,21 +1,20 @@
-//! Using environment variables for configuration.
+//! Configuration from environment variables.
 //!
-//! This example demonstrates how to load configuration from environment variables.
+//! Variable names are `PREFIX_FIELD`, uppercased: with `env_prefix = "MYAPP"`,
+//! the field `port` reads `MYAPP_PORT`.
+//!
+//! The environment layer is only active when `env_prefix` is set. Without a
+//! prefix a field named `path` would read the ambient `PATH`, so the derive
+//! disables the layer rather than guess.
 //!
 //! ## Running this example
 //!
 //! ```bash
-//! # Set individual environment variables (note: field names are lowercase)
-//! export MYAPP_HOST=localhost
-//! export MYAPP_PORT=8080
-//! cargo run --example environment_vars
-//!
-//! # Or set them inline
 //! MYAPP_HOST=localhost MYAPP_PORT=8080 cargo run --example environment_vars
-//! ```
 //!
-//! **Note:** Environment variable names are `{PREFIX}_{FIELD_NAME}` where `FIELD_NAME` is lowercase.
-//! For field `port`, the env var is `MYAPP_port`. For `host`, it's `MYAPP_host`.
+//! # A flag you type still wins over the environment.
+//! MYAPP_PORT=8080 cargo run --example environment_vars -- --port 9000
+//! ```
 
 use clap::Parser;
 use clap_layers::Layered;
@@ -33,9 +32,13 @@ struct Config {
 }
 
 fn main() {
-    let cfg = Config::layered().expect("Failed to load config");
+    // `expect`/`?` would print the Debug representation, throwing away the
+    // source-attributed message. Print the Display form instead.
+    let cfg = Config::layered().unwrap_or_else(|e| {
+        eprintln!("configuration error: {e}");
+        std::process::exit(1);
+    });
 
-    println!("Server configuration:");
-    println!("  Host: {}", cfg.host);
-    println!("  Port: {}", cfg.port);
+    println!("Host: {}", cfg.host);
+    println!("Port: {}", cfg.port);
 }

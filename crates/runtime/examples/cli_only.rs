@@ -18,7 +18,12 @@ struct Config {
 }
 
 fn main() {
-    let cfg = Config::layered().expect("Failed to load config");
+    // `expect`/`?` would print the Debug representation, throwing away the
+    // source-attributed message. Print the Display form instead.
+    let cfg = Config::layered().unwrap_or_else(|e| {
+        eprintln!("configuration error: {e}");
+        std::process::exit(1);
+    });
     println!("Configuration loaded:");
     println!("  Port: {}", cfg.port);
     println!("  Verbose: {}", cfg.verbose);

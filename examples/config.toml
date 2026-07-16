@@ -1,6 +1,10 @@
-# Example configuration file for clap-layers
-# This file demonstrates the TOML format supported by clap_layers
+# Sample configuration for the clap-layers examples.
+#
+# Values here beat the built-in defaults, but lose to an environment variable
+# and to a flag you explicitly type.
 
+host = "0.0.0.0"
 port = 8080
-verbose = 1
 debug = false
+cache_ttl = 600
+database_url = "postgres://localhost:5432/dev"

@@ -1,192 +1,321 @@
-//! # clap-layers
+//! Correct layered configuration for [clap](https://crates.io/crates/clap).
 //!
-//! A deriving helper for correctly layered configuration in [clap](https://crates.io/crates/clap) applications.
+//! One derive macro gives a clap application layered configuration with the
+//! precedence users actually expect:
 //!
-//! ## What Problem Does This Solve?
+//! | Priority | Layer             | Example                          |
+//! | -------- | ----------------- | -------------------------------- |
+//! | 1        | Explicit CLI flag | `--port 8080`                    |
+//! | 2        | Environment var   | `MYAPP_PORT=8080`                |
+//! | 3        | Config file       | `port = 8080` in `myapp.toml`    |
+//! | 4        | Built-in default  | `#[arg(default_value_t = 3000)]` |
 //!
-//! When building CLI applications, users expect configuration to come from multiple sources:
+//! The subtle part — and the reason this crate exists — is layer 1 versus
+//! layer 4. A config-file value must override a clap *default*, but must lose
+//! to a flag the user *explicitly typed*, **even when the typed value happens to
+//! equal the default**. `clap-layers` gets this right by reading clap's
+//! [`ValueSource`](clap::parser::ValueSource) rather than by wrapping every
+//! field in `Option<T>`, so `--help` keeps showing real defaults.
 //!
-//! - **Explicit flags** you pass on the command line
-//! - **Environment variables**
-//! - **Configuration files**
-//! - **Default values** hard-coded in your struct
+//! # Example
 //!
-//! The order matters: flags should always beat env vars, which beat config files, which beat defaults.
-//! The tricky part is detecting whether a value came from an explicit user choice or just a default.
+//! ```
+//! use clap::Parser;
+//! use clap_layers::{Env, Layered};
 //!
-//! `clap-layers` solves this by:
-//! 1. Letting you write one struct with all your settings
-//! 2. Automatically tracking where each value came from (via clap's `value_source()`)
-//! 3. Merging sources in the correct precedence order
-//! 4. Giving precise, source-attributed errors when things go wrong
+//! #[derive(Parser, Layered, Debug)]
+//! #[layered(file = "myapp.toml", env_prefix = "MYAPP")]
+//! struct Config {
+//!     /// Port to listen on
+//!     #[arg(long, default_value_t = 3000)]
+//!     port: u16,
+//! }
+//!
+//! // `Config::layered()` reads the real process arguments and environment.
+//! // `layered_from` is the same engine with both injected, which is what makes
+//! // configuration testable:
+//! let env = Env::from_iter([("MYAPP_PORT", "8080")]);
+//!
+//! // No flag typed: the environment wins over the default.
+//! let cfg = Config::layered_from(["myapp"], &env)?;
+//! assert_eq!(cfg.port, 8080);
+//!
+//! // Flag explicitly typed: it beats the environment.
+//! let cfg = Config::layered_from(["myapp", "--port", "9999"], &env)?;
+//! assert_eq!(cfg.port, 9999);
+//!
+//! // Even when the typed value *equals* the default, it is still explicit.
+//! let cfg = Config::layered_from(["myapp", "--port", "3000"], &env)?;
+//! assert_eq!(cfg.port, 3000);
+//! # Ok::<(), clap_layers::LayeredError>(())
+//! ```
+//!
+//! # Reporting errors
+//!
+//! [`LayeredError`] carries its message in its [`Display`](std::fmt::Display)
+//! form. Rust prints the `Debug` form for a `Result` returned from `main`, so
+//! `let cfg = Config::layered()?` in `main` reports
+//! `Invalid { field: "port", .. }` rather than the attributed message. Print it
+//! yourself instead:
+//!
+//! ```no_run
+//! # use clap::Parser;
+//! # use clap_layers::Layered;
+//! # #[derive(Parser, Layered, Debug)]
+//! # struct Config {
+//! #     #[arg(long, default_value_t = 3000)]
+//! #     port: u16,
+//! # }
+//! let cfg = Config::layered().unwrap_or_else(|e| {
+//!     eprintln!("configuration error: {e}");
+//!     std::process::exit(1);
+//! });
+//! ```
+//!
+//! ```text
+//! configuration error: invalid value 'banana' for 'port' — from environment variable MYAPP_PORT (invalid type: string, expected u16)
+//! ```
+//!
+//! # Field types
+//!
+//! Values from the environment and config file are decoded with
+//! [`serde`], so any field type implementing [`serde::Deserialize`] works —
+//! including `u16`, `bool`, `String`, `Vec<T>`, `Option<T>`, and `#[derive(Deserialize)]`
+//! enums. No `FromStr` bound is required.
+//!
+//! # Per-field control
+//!
+//! - `#[layered(no_env)]` — never read this field from the environment.
+//! - `#[layered(no_file)]` — never read this field from the config file.
+//! - `#[layered(no_cli)]` — never expose this field as a CLI flag. Requires
+//!   `#[arg(skip)]` so clap leaves the field alone; the macro enforces this.
+//!
+//! # Environment variables
+//!
+//! The environment layer is **only active when `env_prefix` is set**. Without a
+//! prefix, a field named `path` would read the ambient `PATH`, so `clap-layers`
+//! disables the layer rather than guess. Names are `PREFIX_FIELD` uppercased:
+//! `env_prefix = "MYAPP"` maps field `db_password` to `MYAPP_DB_PASSWORD`.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+// A library returns `Result`; it must not abort its caller's process. Relaxed
+// under `cfg(test)`, where unwrapping is how a test asserts.
+#![cfg_attr(
+    not(test),
+    warn(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+use std::collections::BTreeMap;
+use std::ffi::OsString;
+use std::path::PathBuf;
+
+mod source;
 
 #[doc(hidden)]
+pub mod __private;
+
+/// Re-export of the `clap` version this crate is built against.
+///
+/// [`LayeredError::Cli`] wraps a [`clap::Error`], so this re-export lets you
+/// handle it without depending on a matching `clap` version yourself.
+pub use clap;
+
 pub use clap_layers_proc::Layered;
 
-pub mod merge;
-pub use merge::{parse_env_var, parse_toml_file};
-
-/// Where a configuration value ultimately came from.
+/// Which layer supplied a configuration value.
 ///
-/// This is useful for debugging which source is providing each value,
-/// or for implementing features like `--dump-config`.
+/// Used in [`LayeredError::Invalid`] to attribute a bad value to the exact
+/// layer that produced it.
 ///
-/// # Examples
-///
-/// A common pattern is to log the source of each configuration value:
-///
-/// ```ignore
-/// let cfg = Config::layered()?;
-///
-/// for field in cfg.fields() {
-///     println!("{} came from: {}", field.name, field.source);
-/// }
-/// ```
-#[derive(Debug, Clone, PartialEq)]
+/// Only the layers this crate decodes values for appear here. A malformed CLI
+/// argument is clap's to report, and surfaces as [`LayeredError::Cli`], so
+/// there is no `CliFlag` variant to construct. This enum is `#[non_exhaustive]`,
+/// so `--dump-config` can add the remaining layers in a later version without a
+/// breaking change.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum SourceLayer {
-    /// Value was set via an explicitly passed CLI flag (e.g., `--port 8080`)
-    CliFlag(String),
-    /// Value was read from an environment variable
+    /// An environment variable, holding the variable's name.
     EnvVar(String),
-    /// Value was loaded from a configuration file
-    ConfigFile(String),
-    /// Value came from the struct's default (no external source)
-    Default,
+    /// A configuration file, holding its path and the 1-based line number.
+    ConfigFile {
+        /// Path to the configuration file.
+        path: PathBuf,
+        /// 1-based line number the value appears on.
+        line: usize,
+    },
 }
 
 impl std::fmt::Display for SourceLayer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SourceLayer::CliFlag(name) => write!(f, "command-line flag {name}"),
             SourceLayer::EnvVar(var) => write!(f, "environment variable {var}"),
-            SourceLayer::ConfigFile(path) => write!(f, "configuration file {path}"),
-            SourceLayer::Default => write!(f, "defaults"),
+            SourceLayer::ConfigFile { path, line } => {
+                write!(f, "{}, line {line}", path.display())
+            }
         }
     }
 }
 
-/// Errors that can occur when loading configuration.
+/// Errors produced while loading layered configuration.
 ///
-/// Each error variant includes context about where the problem occurred,
-/// making it easier to debug configuration issues.
+/// Every variant names the layer it came from, so a bad value is never reported
+/// as an anonymous post-merge failure.
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum LayeredError {
-    /// A configuration file could not be read.
+    /// Command-line parsing failed, or clap was asked to display help/version.
     ///
-    /// # Example
+    /// [`Layered::layered`] never returns this — it defers to
+    /// [`clap::Error::exit`], matching [`clap::Parser::parse`]. It is only
+    /// returned by [`Layered::layered_from`].
+    #[error(transparent)]
+    Cli(#[from] clap::Error),
+
+    /// The configuration file exists but could not be read.
     ///
-    /// ```ignore
-    /// use clap_layers::LayeredError;
-    ///
-    /// // This error includes the path that failed:
-    /// let err = LayeredError::Io { ... };
-    /// assert!(err.to_string().contains("config.toml"));
-    /// ```
-    #[error("could not read config file '{path}': {source}")]
+    /// A *missing* config file is not an error; the layer is simply skipped.
+    #[error("could not read config file '{}': {source}", path.display())]
     Io {
-        /// The path to the file that could not be read.
-        path: String,
-        /// The underlying I/O error from `std::io`.
+        /// Path to the file that could not be read.
+        path: PathBuf,
+        /// The underlying I/O error.
+        #[source]
         source: std::io::Error,
     },
-    /// A configuration file contains invalid TOML syntax or structure.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// // If config.toml has:
-    /// //   port = "not-a-number"
-    /// //
-    /// // You'll get an error like:
-    /// //   "TOML parse error at line 1, column 8: invalid value for u16: not-a-number"
-    /// ```
-    #[error("TOML parse error at {position}: {message}")]
-    TomlParse {
-        /// The human-readable message from the TOML parser.
+
+    /// The configuration file is not valid TOML.
+    #[error("could not parse config file '{}' at line {line}, column {column}: {message}", path.display())]
+    Parse {
+        /// Path to the offending file.
+        path: PathBuf,
+        /// 1-based line number of the syntax error.
+        line: usize,
+        /// 1-based column number of the syntax error.
+        column: usize,
+        /// Message from the TOML parser.
         message: String,
-        /// The position in the file where the error occurred.
-        position: String,
     },
-    /// An environment variable contains a value that cannot be parsed for a field.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// // If PORT=not-a-number is set:
-    /// //
-    /// // Error: "invalid environment variable 'PORT' for 'port': invalid digit found in string"
-    /// ```
-    #[error("invalid environment variable '{var}' for '{field}': {source}")]
-    Env {
-        /// The name of the environment variable that failed.
-        var: String,
-        /// The field that failed to parse.
+
+    /// A layer supplied a value that could not be decoded into the field's type.
+    #[error("invalid value '{value}' for '{field}' — from {layer} ({message})")]
+    Invalid {
+        /// Name of the field that could not be populated.
         field: String,
-        /// The underlying error from parsing (e.g., "invalid digit found in string").
-        source: Box<dyn std::error::Error + Send + Sync>,
+        /// The offending value, as written in the source.
+        value: String,
+        /// The layer that supplied the value.
+        layer: SourceLayer,
+        /// Why decoding failed, e.g. `invalid type: string, expected u16`.
+        message: String,
     },
 }
 
-/// Trait implemented by the `#[derive(Layered)]` macro.
+/// A snapshot of environment variables for the environment layer.
 ///
-/// This trait provides a single method to load configuration from all sources
-/// with proper precedence: explicit flags > environment variables > config files > defaults.
+/// Taking the environment as an explicit value — rather than reading the
+/// process environment deep inside the merge engine — is what makes
+/// [`Layered::layered_from`] testable and safe to run in parallel tests.
 ///
-/// ## Usage
+/// # Examples
 ///
-/// ```text
-/// use clap::Parser;
-/// use clap_layers::Layered;
-///
-/// #[derive(Parser, Layered, Debug)]
-/// #[command(version, about)]
-/// #[layered(file = "myapp.toml", env_prefix = "MYAPP")]
-/// struct Config {
-///     #[arg(long, default_value_t = 3000)]
-///     port: u16,
-///
-///     #[arg(short, long, default_value_t = false)]
-///     verbose: bool,
-/// }
-///
-/// fn main() -> anyhow::Result<()> {
-///     let cfg = Config::layered()?;
-///     println!("{cfg:?}");
-///     Ok(())
-/// }
 /// ```
+/// use clap_layers::Env;
+///
+/// let env = Env::from_iter([("MYAPP_PORT", "8080")]);
+/// assert_eq!(env.get("MYAPP_PORT"), Some("8080"));
+/// assert_eq!(env.get("MYAPP_HOST"), None);
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Env {
+    vars: BTreeMap<String, String>,
+}
+
+impl Env {
+    /// Capture the current process environment.
+    ///
+    /// Variables whose name or value is not valid UTF-8 are skipped.
+    #[must_use]
+    pub fn from_system() -> Self {
+        Self {
+            vars: std::env::vars_os()
+                .filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?)))
+                .collect(),
+        }
+    }
+
+    /// An environment with no variables set.
+    #[must_use]
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Look up a variable by name.
+    #[must_use]
+    pub fn get(&self, key: &str) -> Option<&str> {
+        self.vars.get(key).map(String::as_str)
+    }
+}
+
+/// Generic over the key and value types so both `("A", "1")` and owned
+/// `String` pairs work, which keeps test setup free of `to_string()` noise.
+impl<K, V> FromIterator<(K, V)> for Env
+where
+    K: Into<String>,
+    V: Into<String>,
+{
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(iter: I) -> Self {
+        Self {
+            vars: iter
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into()))
+                .collect(),
+        }
+    }
+}
+
+/// Load a struct from all configuration layers.
+///
+/// Implemented by `#[derive(Layered)]`; do not implement it by hand. The
+/// derived type must also derive [`clap::Parser`].
 pub trait Layered: Sized {
-    /// Parse configuration from all layers: CLI > env > file > default.
+    /// Load configuration from the process arguments and environment.
     ///
-    /// This is the main entry point for loading configuration.
+    /// This is the entry point for applications. Like [`clap::Parser::parse`],
+    /// it does **not** return CLI errors: on a bad flag it prints a diagnostic
+    /// and exits non-zero, and on `--help` / `--version` it prints and exits
+    /// zero. Errors from the file and environment layers are still returned.
     ///
-    /// ## Returns
+    /// Use [`Layered::layered_from`] in tests.
     ///
-    /// - `Ok(Config)` if all sources load successfully and merge cleanly
-    /// - `Err(LayeredError)` with details about what went wrong and where
+    /// # Errors
     ///
-    /// ## Precedence Order
+    /// Returns [`LayeredError`] if the config file is unreadable or malformed,
+    /// or if any layer supplies a value that cannot be decoded.
+    fn layered() -> Result<Self, LayeredError> {
+        match Self::layered_from(std::env::args_os(), &Env::from_system()) {
+            Err(LayeredError::Cli(e)) => e.exit(),
+            other => other,
+        }
+    }
+
+    /// Load configuration from explicit arguments and an explicit environment.
     ///
-    /// 1. **CLI flags** (explicitly passed on command line)
-    /// 2. **Environment variables** (with the prefix from `#[layered(env_prefix = "...")]`)
-    /// 3. **Config file** (at the path from `#[layered(file = "path/to/file.toml")]`)
-    /// 4. **Defaults** (from `#[arg(default_value_t = ...)]` or field initializers)
+    /// The testable form of [`Layered::layered`]: nothing is read from process
+    /// globals, so tests are hermetic and can run in parallel. CLI errors are
+    /// returned as [`LayeredError::Cli`] rather than exiting.
     ///
-    /// ## Example
+    /// # Errors
     ///
-    /// ```text
-    /// let cfg = match Config::layered() {
-    ///     Ok(cfg) => cfg,
-    ///     Err(e) => {
-    ///         eprintln!("Configuration error: {e}");
-    ///         std::process::exit(1);
-    ///     }
-    /// };
-    /// ```
-    fn layered() -> Result<Self, LayeredError>;
+    /// Returns [`LayeredError::Cli`] if argument parsing fails (including
+    /// `--help`), or another [`LayeredError`] if a layer is unreadable,
+    /// malformed, or supplies an undecodable value.
+    fn layered_from<I, T>(args: I, env: &Env) -> Result<Self, LayeredError>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone;
 }
 
 #[cfg(test)]
@@ -194,44 +323,77 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_source_layer_display() {
+    fn source_layer_display() {
         assert_eq!(
-            SourceLayer::CliFlag("port".to_string()).to_string(),
-            "command-line flag port"
+            SourceLayer::EnvVar("MYAPP_PORT".to_string()).to_string(),
+            "environment variable MYAPP_PORT"
         );
         assert_eq!(
-            SourceLayer::EnvVar("PORT".to_string()).to_string(),
-            "environment variable PORT"
+            SourceLayer::ConfigFile {
+                path: PathBuf::from("config.toml"),
+                line: 12,
+            }
+            .to_string(),
+            "config.toml, line 12"
         );
-        assert_eq!(
-            SourceLayer::ConfigFile("config.toml".to_string()).to_string(),
-            "configuration file config.toml"
+    }
+
+    /// The exact wording promised by the project's correctness bar.
+    #[test]
+    fn invalid_error_is_source_attributed() {
+        let err = LayeredError::Invalid {
+            field: "port".to_string(),
+            value: "foo".to_string(),
+            layer: SourceLayer::ConfigFile {
+                path: PathBuf::from("config.toml"),
+                line: 12,
+            },
+            message: "invalid type: string, expected u16".to_string(),
+        };
+        assert!(
+            err.to_string()
+                .starts_with("invalid value 'foo' for 'port' — from config.toml, line 12"),
+            "got: {err}"
         );
-        assert_eq!(SourceLayer::Default.to_string(), "defaults");
     }
 
     #[test]
-    fn test_layered_error_variants() {
-        let io_err = LayeredError::Io {
-            path: "config.toml".to_string(),
-            source: std::io::Error::new(std::io::ErrorKind::NotFound, "file not found"),
-        };
-        assert!(io_err.to_string().contains("config.toml"));
-
-        let toml_err = LayeredError::TomlParse {
-            message: "invalid value".to_string(),
-            position: "line 1, column 5".to_string(),
-        };
-        assert!(toml_err.to_string().contains("TOML parse error"));
-
-        let env_err = LayeredError::Env {
-            var: "PORT".to_string(),
+    fn invalid_error_names_the_env_var() {
+        let err = LayeredError::Invalid {
             field: "port".to_string(),
-            source: Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "invalid digit",
-            )),
+            value: "banana".to_string(),
+            layer: SourceLayer::EnvVar("MYAPP_PORT".to_string()),
+            message: "invalid digit".to_string(),
         };
-        assert!(env_err.to_string().contains("invalid environment variable"));
+        assert!(
+            err.to_string()
+                .contains("from environment variable MYAPP_PORT"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn io_error_names_the_path() {
+        let err = LayeredError::Io {
+            path: PathBuf::from("config.toml"),
+            source: std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied"),
+        };
+        assert!(err.to_string().contains("config.toml"), "got: {err}");
+    }
+
+    #[test]
+    fn env_from_iter_and_get() {
+        let env = Env::from_iter([("A".to_string(), "1".to_string())]);
+        assert_eq!(env.get("A"), Some("1"));
+        assert_eq!(env.get("B"), None);
+        assert_eq!(Env::empty().get("A"), None);
+    }
+
+    #[test]
+    fn env_from_system_reads_process_env() {
+        // `Env::from_system` is the one place that touches process globals.
+        let env = Env::from_system();
+        // PATH is set on every platform CI runs on.
+        assert!(env.get("PATH").is_some() || env.get("Path").is_some());
     }
 }

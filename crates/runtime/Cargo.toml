@@ -7,6 +7,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation.workspace = true
+readme = "../../README.md"
 
 authors = ["Julian Chultarsky <jchultarsky@gmail.com>"]
 
@@ -19,11 +20,23 @@ categories = ["command-line-interface", "config"]
 name = "clap_layers"
 path = "src/lib.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 # Local proc-macro crate
 clap-layers-proc = { path = "../proc-macro", version = "0.1.0" }
 thiserror.workspace = true
-clap = { workspace = true, features = ["derive"] }
+# `env` lets clap's own `#[arg(env = "...")]` compose with our layers.
+clap = { workspace = true, features = ["derive", "env"] }
+toml.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 trybuild = "1"
+serde = { workspace = true, features = ["derive"] }
+proptest = "1.11.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

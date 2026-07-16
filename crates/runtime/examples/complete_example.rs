@@ -1,40 +1,21 @@
-//! Complete layered configuration example.
-//!
-//! This example demonstrates all features working together:
-//! - CLI arguments (highest priority)
-//! - Environment variables (second priority)
-//! - Config file (third priority)
-//! - Default values (lowest priority)
-//!
-//! ## Precedence Order
-//!
-//! When a value is requested, the system checks in this order:
-//! 1. CLI argument (e.g., `--port 8080`)
-//! 2. Environment variable (e.g., `MYAPP_PORT=8080`)
-//! 3. Config file value (from `config.toml`)
-//! 4. Default value (in struct definition)
+//! Every layer working together.
 //!
 //! ## Running this example
 //!
-//! 1. Create a config file at `examples/config.toml`:
-//! ```toml
-//! database_url = "postgres://localhost:5432/dev"
-//! cache_ttl = 60
-//! ```
-//!
-//! 2. Run with different configurations:
 //! ```bash
-//! # Use all defaults
+//! # Values come from examples/config.toml, falling back to defaults.
 //! cargo run --example complete_example
 //!
-//! # Override via environment variable
+//! # The environment beats the file.
 //! MYAPP_DATABASE_URL="postgres://prod:5432/prod" cargo run --example complete_example
 //!
-//! # Override via CLI (highest priority)
-//! cargo run --example complete_example -- --database-url "postgres://cli:5432/cli"
+//! # A flag you type beats the environment and the file.
+//! MYAPP_CACHE_TTL=60 cargo run --example complete_example -- --cache-ttl 120
 //!
-//! # Combine: file has values, env overrides some, CLI overrides all
-//! MYAPP_DEBUG=false cargo run --example complete_example -- --debug --cache-ttl 120
+//! # Bad values are reported against the layer that supplied them, rather than
+//! # being silently ignored:
+//! #   invalid value 'banana' for 'cache_ttl' - from environment variable MYAPP_CACHE_TTL
+//! MYAPP_CACHE_TTL=banana cargo run --example complete_example
 //! ```
 
 use clap::Parser;
@@ -46,7 +27,7 @@ use clap_layers::Layered;
     about = "Complete layered configuration example",
     long_about = None
 )]
-#[layered(file = "config.toml", env_prefix = "MYAPP")]
+#[layered(file = "examples/config.toml", env_prefix = "MYAPP")]
 struct Config {
     /// Database connection URL
     #[arg(long, default_value_t = String::from("sqlite://localhost:3000/db"))]
@@ -66,7 +47,16 @@ struct Config {
 }
 
 fn main() {
-    let cfg = Config::layered().expect("Failed to load configuration");
+    // `expect`/`?` would print the Debug representation, throwing away the
+    // source-attributed message. Print the Display form instead: every
+    // LayeredError already names the layer and value at fault.
+    let cfg = match Config::layered() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("configuration error: {e}");
+            std::process::exit(1);
+        }
+    };
 
     println!("=== Application Configuration ===\n");
 

@@ -9,3 +9,12 @@
 *~
 .idea/
 .vscode/
+
+# Local design brief - never commit or ship (see CLAUDE.md)
+/docs/PROJECT-BRIEF-*.md
+
+# Scratch config files written by the integration tests
+.test-tmp/
+
+# Raw coverage profiles, written next to the crate by instrumented binaries
+*.profraw
