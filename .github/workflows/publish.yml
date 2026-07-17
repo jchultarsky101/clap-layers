@@ -1,0 +1,76 @@
+name: Publish
+
+# Releasing by hand is a sequence with no feedback until it is too late: the
+# version, the tag and what reaches crates.io can disagree, and a published
+# version is permanent — it can be yanked but never replaced. This makes the
+# tag the trigger and re-checks the things that would otherwise be assumed.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    # Requires a `crates-io` environment holding CARGO_REGISTRY_TOKEN. Putting
+    # the token in an environment rather than a bare repository secret means it
+    # is reachable only from this job, and the environment can require a manual
+    # approval before the irreversible step runs.
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # ci.yml runs on pushes to main and on pull requests, not on tags, so a
+      # tag pushed at the wrong commit would otherwise reach the upload with
+      # nothing having checked it. Re-run the suite against the exact tree that
+      # is about to ship.
+      - name: Test
+        run: cargo test --workspace --all-features
+
+      # A tag naming a version the manifest does not carry is the failure this
+      # guards: cargo would happily publish whatever Cargo.toml says while the
+      # tag, the changelog and the release notes all claim something else.
+      - name: Verify tag matches the manifest version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name == "clap-layers") | .version')"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::tag v${tag} does not match clap-layers ${manifest} in Cargo.toml"
+            exit 1
+          fi
+          echo "tag v${tag} matches the manifest"
+
+      # The changelog is the release's user-facing record. An entry that was
+      # never written is easiest to notice now, while the version can still be
+      # amended.
+      - name: Verify the changelog has an entry for this version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          if ! grep -qF "## [${tag}]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${tag}]' section"
+            exit 1
+          fi
+          echo "changelog documents ${tag}"
+
+      # Publishes clap-layers-proc first, then clap-layers, waiting for the
+      # index between them: the runtime crate depends on an exact version of the
+      # macro crate, so the order is not interchangeable. --workspace handles
+      # the ordering and skips members marked `publish = false`.
+      - name: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --workspace
