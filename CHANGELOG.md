@@ -137,5 +137,5 @@ Against the unreleased scaffolding that preceded it:
 - Sequences from the environment must be TOML arrays (`MYAPP_TAGS='["a","b"]'`);
   clap's `value_delimiter` applies only to the command line.
 
-[Unreleased]: https://github.com/jchultarsky101/clap-layers/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/jchultarsky101/clap-layers/releases/tag/v0.1.0
+[Unreleased]: https://github.com/jchultarsky/clap-layers/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jchultarsky/clap-layers/releases/tag/v0.1.0

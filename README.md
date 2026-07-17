@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/clap-layers.svg)](https://crates.io/crates/clap-layers)
 [![Docs.rs](https://docs.rs/clap-layers/badge.svg)](https://docs.rs/clap-layers)
-[![CI](https://github.com/jchultarsky101/clap-layers/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky101/clap-layers/actions/workflows/ci.yml)
+[![CI](https://github.com/jchultarsky/clap-layers/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky/clap-layers/actions/workflows/ci.yml)
 [![MSRV](https://img.shields.io/badge/MSRV-1.85-blue.svg)](#msrv)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -176,7 +176,7 @@ Minimum supported Rust version: **1.85** (required by edition 2024).
 
 ## Design & contributing
 
-- **[Design & Rationale](https://github.com/jchultarsky101/clap-layers/blob/main/docs/DESIGN.md)** —
+- **[Design & Rationale](https://github.com/jchultarsky/clap-layers/blob/main/docs/DESIGN.md)** —
   why this crate exists, the correctness requirements it must meet, the target API, and how the
   derive works internally. Start here to understand the project's intent.
 - **[Contributing guide](CONTRIBUTING.md)** — how to build, test, and open a PR.

@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
-repository = "https://github.com/jchultarsky101/clap-layers"
-homepage = "https://github.com/jchultarsky101/clap-layers"
+repository = "https://github.com/jchultarsky/clap-layers"
+homepage = "https://github.com/jchultarsky/clap-layers"
 documentation = "https://docs.rs/clap-layers"
 
 authors = ["Julian Chultarsky <jchultarsky@gmail.com>"]

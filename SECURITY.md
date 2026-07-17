@@ -20,7 +20,7 @@ Use GitHub's [private vulnerability reporting][gh-report] on this repository,
 which opens a channel visible only to the maintainers. If that is unavailable to
 you, email **jchultarsky@gmail.com** with `clap-layers` in the subject.
 
-[gh-report]: https://github.com/jchultarsky101/clap-layers/security/advisories/new
+[gh-report]: https://github.com/jchultarsky/clap-layers/security/advisories/new
 
 Please include the crate version, the smallest configuration that reproduces the
 problem, and what an attacker gains. A proof of concept helps but is not

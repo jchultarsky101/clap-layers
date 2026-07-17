@@ -6,7 +6,7 @@ polish**, so contributions that add tests and sharpen error messages are especia
 ## Getting started
 
 ```sh
-git clone https://github.com/jchultarsky101/clap-layers
+git clone https://github.com/jchultarsky/clap-layers
 cd clap-layers
 cargo test
 ```

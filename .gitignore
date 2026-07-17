@@ -21,3 +21,6 @@
 
 # Local assistant memory: working state, not project documentation
 /memory/
+
+# Qwen Code assistant files
+.qwen/
