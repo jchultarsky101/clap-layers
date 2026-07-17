@@ -1,7 +1,7 @@
 # clap-layers
 
-[![Crates.io](https://img.shields.io/crates/v/clap-layers.svg)](https://crates.io/crates/clap-layers)
-[![Docs.rs](https://docs.rs/clap-layers/badge.svg)](https://docs.rs/clap-layers)
+[![Crates.io](https://img.shields.io/crates/v/clap-layers)](https://crates.io/crates/clap-layers)
+[![Docs.rs](https://img.shields.io/docsrs/clap-layers)](https://docs.rs/clap-layers)
 [![CI](https://github.com/jchultarsky/clap-layers/actions/workflows/ci.yml/badge.svg)](https://github.com/jchultarsky/clap-layers/actions/workflows/ci.yml)
 [![MSRV](https://img.shields.io/badge/MSRV-1.85-blue.svg)](#msrv)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
