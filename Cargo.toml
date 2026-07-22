@@ -14,7 +14,7 @@ documentation = "https://docs.rs/clap-layers"
 authors = ["Julian Chultarsky <jchultarsky@gmail.com>"]
 
 [workspace.dependencies]
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
 thiserror = "2"
